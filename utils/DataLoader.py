@@ -176,21 +176,17 @@ def get_link_prediction_data(dataset_name: str, val_ratio: float = 0.15, test_ra
         if os.path.exists(test_ns_path):
             test_ns = np.load(test_ns_path)
         else:
-            num_negs = 0
             dataset.load_test_ns()
             test_ns_dict = dataset.ns_sampler.eval_set["test"]
             test_ns = []
             for src, dst, time in zip(src_node_ids[test_mask], dst_node_ids[test_mask], node_interact_times[test_mask]):
                 if (src, dst, time) in test_ns_dict:
-                    tmp_negs = test_ns_dict[(src, dst, time)]
-                    if num_negs == 0:
-                        num_negs = len(tmp_negs)
-                    else:
-                        assert num_negs == len(tmp_negs), f"Number of negative samples is not consistent! {num_negs} != {len(tmp_negs)}"
-                    test_ns.append(tmp_negs)
+                    test_ns.append(np.asarray(test_ns_dict[(src, dst, time)]))
                 else:
                     raise KeyError("No such test sample")
-            test_ns = np.array(test_ns)
+            # tgbl-wiki ships 998 or 999 negatives per query; trim all rows to the shortest.
+            num_negs = min(len(negs) for negs in test_ns)
+            test_ns = np.stack([negs[:num_negs] for negs in test_ns])
             np.save(test_ns_path, test_ns)
         # ! end of modifications //////////////////////////////////////////////////////////////
         # note that in our data preprocess pipeline, we add an extra node and edge with index 0 as the padded node/edge for convenience of model computation,
